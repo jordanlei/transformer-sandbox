@@ -20,7 +20,12 @@ transformer-sandbox/
 - **Custom Transformer Implementation**: A PyTorch-based transformer model with configurable parameters
 - **Training Runner**: Comprehensive training loop with metrics tracking and validation
 - **Text Generation**: Inference capabilities for generating text continuations
-- **Shakespeare Demo**: Complete example using Shakespeare's works as training data
+- **🎭 Shakespeare Demo**: Complete, interactive tutorial for training transformers on literary text
+  - Step-by-step character-level text generation
+  - Comprehensive data preprocessing pipeline
+  - Training visualization and metrics analysis
+  - Real-time text generation with custom prompts
+  - Optimized for Apple Silicon (MPS) and CPU
 
 ## Installation
 
@@ -43,20 +48,43 @@ pip install -r requirements.txt
 
 ## Usage
 
-### Running the Shakespeare Demo
+### 🎭 Shakespeare Demo - The Main Attraction
 
-The main demonstration is in `demos/Demo Shakespeare.ipynb`:
+The centerpiece of this project is `demos/Demo Shakespeare.ipynb`, a comprehensive tutorial that demonstrates the full transformer training pipeline:
 
 ```bash
 cd demos
 jupyter notebook "Demo Shakespeare.ipynb"
 ```
 
-This notebook:
-- Loads and preprocesses Shakespeare text data
-- Trains a transformer model on the text
-- Generates new text continuations
-- Visualizes training metrics
+#### What You'll Learn
+
+This interactive notebook walks you through:
+
+1. **Environment Setup**: Automatic device detection (MPS/CPU) and module imports
+2. **Data Processing**: Loading Shakespeare text, creating vocabulary, and encoding/decoding functions
+3. **Model Architecture**: Building a custom transformer with configurable parameters
+4. **Training Process**: Complete training loop with real-time metrics and validation
+5. **Visualization**: Training loss/accuracy plots for model analysis
+6. **Text Generation**: Creating new Shakespeare-style text from custom prompts
+
+#### Demo Features
+
+- **Character-level generation** for fine-grained text control
+- **Interactive training** with progress bars and real-time metrics
+- **Customizable prompts** - try your own Shakespeare-style openings
+- **Performance optimization** for Apple Silicon Macs
+- **Educational explanations** for each step of the process
+
+#### Sample Output
+
+The demo generates text like:
+```
+Input: "OMELETTE. To fry, or not to fry?"
+Output: "TOETHYOSUIW. Ss AXd po, Path phit ive? Y. TSNDHO..."
+```
+
+While not perfect English, it captures Shakespeare's linguistic patterns and structure!
 
 ### Using the Components Separately
 

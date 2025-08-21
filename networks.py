@@ -50,7 +50,6 @@ class MultiHeadAttention(nn.Module):
         out = self.W_out(out_heads) # (batch_size, seq_len, input_dim)
         return out
 
-
 class FeedForward(nn.Module): 
     """Simple feed-forward network with one hidden layer and ReLU activation."""
     def __init__(self, input_dim, hidden_dim, output_dim): 
@@ -64,7 +63,6 @@ class FeedForward(nn.Module):
         # Project back to output dimension
         out = self.W_2(out)
         return out
-
 
 class TransformerBlock(nn.Module): 
     """Basic Transformer block consisting of multi-head self-attention followed by

@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from utils import get_batch
+from tqdm import tqdm
 
 class Runner: 
     """A class to handle training, evaluation, and generation for transformer models."""
@@ -33,7 +34,8 @@ class Runner:
             batch_size: Batch size for training
             iters: Number of training iterations
         """
-        for i in range(iters): 
+        progress_bar = tqdm(range(iters), desc="Training")
+        for i in progress_bar:
             # Get random batch
             x, y = get_batch(train_data, self.block_size, batch_size)
 
@@ -52,13 +54,13 @@ class Runner:
                 self.metrics["train_loss"].append(loss.item())
                 self.metrics["train_acc"].append(acc.item())
                 self.metrics["train_iter"].append(i)
-                print(f"Iteration {i}, Loss: {loss.item()}, Accuracy: {acc.item()}")
 
                 val_loss, val_acc = self.evaluate(val_data, batch_size)
                 self.metrics["val_loss"].append(val_loss)
                 self.metrics["val_acc"].append(val_acc)
                 self.metrics["val_iter"].append(i)
-                print(f"Validation Loss: {val_loss}, Validation Accuracy: {val_acc}")
+
+                progress_bar.set_description(f"Train Loss: {loss.item():.4f}, Train Acc: {acc.item():.4f}, Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}")
     
     def evaluate(self, val_data, batch_size = 500):
         """Evaluate model on validation data.

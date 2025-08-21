@@ -11,6 +11,7 @@ transformer-sandbox/
 ├── networks.py                     # Transformer model implementation
 ├── runners.py                      # Training and evaluation utilities
 ├── utils.py                        # Helper functions
+├── test.py                         # Comprehensive test suite
 ├── shakespeare.txt                 # Shakespeare text dataset
 ├── requirements.txt                # Python dependencies
 └── README.md                       # This file
@@ -44,6 +45,11 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 3. Install dependencies:
 ```bash
 pip install -r requirements.txt
+```
+
+4. Verify installation:
+```bash
+python test.py
 ```
 
 ## Usage

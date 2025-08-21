@@ -2,6 +2,19 @@
 
 A Python project for experimenting with transformer models, featuring a simple implementation of the Transformer architecture and training utilities.
 
+## 🎬 Training Visualization Demo
+
+Watch the transformer learn in real-time! The training process generates an animated GIF showing the model's progress:
+
+![Training Progress](animation.gif)
+
+**What you'll see:**
+- **Loss curves** (blue) and **validation loss** (red) decreasing over time
+- **Accuracy curves** showing training and validation performance
+- **Text samples** generated at each checkpoint using the prompt "HAMLET\n To be, or not to be?"
+
+The GIF is automatically generated after training completes, showing the complete learning journey from random characters to Shakespeare-like patterns!
+
 ## Project Structure
 
 ```

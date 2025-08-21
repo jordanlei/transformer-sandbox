@@ -5,6 +5,43 @@ import matplotlib.pyplot as plt
 from utils import get_batch
 from tqdm import tqdm
 
+def generate(net, string_input, encode, decode, max_new_tokens=50, block_size=None):
+    """Generate new tokens given an input string.
+    Args:
+        net: The transformer model
+        string_input: Input string to continue generating from
+        encode: Function to encode string to token indices
+        decode: Function to decode token indices to string
+        max_new_tokens: Maximum number of new tokens to generate
+        block_size: Context window size (defaults to net.block_size)
+        
+    Returns:
+        Generated string continuation
+    """
+    if block_size is None:
+        block_size = net.block_size
+        
+    # Encode input and pad if needed
+    sequence = encode(string_input)
+    if len(sequence) < block_size:
+        sequence = [0] * (block_size - len(sequence)) + sequence
+
+    input_length = len(sequence)
+    net.eval()
+    
+    for _ in range(max_new_tokens):
+        # Get model prediction for next token
+        x = torch.tensor(sequence[-block_size:], dtype=torch.long, device=next(net.parameters()).device)
+        x = x.unsqueeze(0)
+        out = net(x)
+        out = out[:, -1, :]
+        probs = torch.softmax(out, dim=-1)
+        next_idx = torch.multinomial(probs, num_samples=1)
+        sequence.append(next_idx.item())
+
+    return decode(sequence[input_length:])
+
+
 class Runner: 
     """A class to handle training, evaluation, and generation for transformer models."""
     def __init__(self, net: nn.Module, loss_fn: nn.Module, optimizer: torch.optim.Optimizer, device: str, metric_freq = 100):
@@ -25,7 +62,7 @@ class Runner:
         self.metric_freq = metric_freq
         self.metrics = defaultdict(list)
 
-    def train(self, train_data, val_data, batch_size, iters = 1000):
+    def train(self, train_data, val_data, batch_size, iters=1000, hook_fn=None):
         """Train the model on training data and validate periodically.
         
         Args:
@@ -33,6 +70,7 @@ class Runner:
             val_data: Validation dataset  
             batch_size: Batch size for training
             iters: Number of training iterations
+            hook_fn: Optional function called at each metric logging step
         """
         progress_bar = tqdm(range(iters), desc="Training")
         for i in progress_bar:
@@ -59,6 +97,10 @@ class Runner:
                 self.metrics["val_loss"].append(val_loss)
                 self.metrics["val_acc"].append(val_acc)
                 self.metrics["val_iter"].append(i)
+
+                # Call hook function if provided
+                if hook_fn is not None:
+                    hook_fn(i, self.metrics, self.net)
 
                 progress_bar.set_description(f"Train Loss: {loss.item():.4f}, Train Acc: {acc.item():.4f}, Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}")
     
@@ -91,24 +133,7 @@ class Runner:
         Returns:
             Generated string continuation
         """
-        # Encode input and pad if needed
-        sequence = encode(string_input)
-        if len(sequence) < self.block_size:
-            sequence = [0] * (self.block_size - len(sequence)) + sequence
-
-        input_length = len(sequence)
-        self.net.eval()
-        for _ in range(max_new_tokens):
-            # Get model prediction for next token
-            x = torch.tensor(sequence[-self.block_size:], dtype=torch.long, device=self.device)
-            x = x.unsqueeze(0)
-            out = self.net(x)
-            out = out[:, -1, :]
-            probs = torch.softmax(out, dim=-1)
-            next_idx = torch.multinomial(probs, num_samples=1)
-            sequence.append(next_idx.item())
-
-        return decode(sequence[input_length:])
+        return generate(self.net, string_input, encode, decode, max_new_tokens, self.block_size)
 
     def save(self, path):
         """Save model state dict to path."""
@@ -121,14 +146,20 @@ class Runner:
     def plot_metrics(self):
         """Plot training and validation metrics."""
         # Plot loss
-        plt.subplot(2, 1, 1)
+        plt.figure(figsize=(10, 5))
+        plt.subplot(1, 2, 1)
         plt.plot(self.metrics["train_iter"], self.metrics["train_loss"], label="Train Loss")
         plt.plot(self.metrics["val_iter"], self.metrics["val_loss"], label="Validation Loss")
         plt.legend()
+        plt.xlabel("Iteration")
+        plt.ylabel("Loss")
 
         # Plot accuracy
-        plt.subplot(2, 1, 2)
+        plt.subplot(1, 2, 2)
         plt.plot(self.metrics["train_iter"], self.metrics["train_acc"], label="Train Accuracy")
         plt.plot(self.metrics["val_iter"], self.metrics["val_acc"], label="Validation Accuracy")
         plt.legend()
-        plt.show()
+        plt.xlabel("Iteration")
+        plt.ylabel("Accuracy")
+
+    

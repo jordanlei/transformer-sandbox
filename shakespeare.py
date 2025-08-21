@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import os
 from PIL import Image
 import glob
-
+from matplotlib import gridspec
 if torch.backends.mps.is_available(): device = torch.device("mps")
 else: device = torch.device("cpu")
 
@@ -89,83 +89,81 @@ def main():
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.AdamW(net.parameters(), lr=1e-3)
     
-    # Define training hook within main to access encode/decode functions
     def training_hook(iteration, metrics, model):
-        """Save training progress figures instead of printing."""
-        # Create a figure with 3 subplots
-        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 6))
+        """Save training progress figures showing loss curves, accuracy, and text generation."""
+        # Create figure layout
+        fig = plt.figure(figsize=(10, 10))
+        gs = gridspec.GridSpec(2, 2, height_ratios=[1, 1])
         
-        # Plot 1: Loss curves
+        # Plot loss curves
+        ax1 = fig.add_subplot(gs[0, 0])
         ax1.plot(metrics['train_iter'], metrics['train_loss'], label='Train Loss', color='blue')
         ax1.plot(metrics['val_iter'], metrics['val_loss'], label='Validation Loss', color='red')
-        ax1.set_xlabel('Iteration')
-        ax1.set_ylabel('Loss')
-        ax1.set_title('Training and Validation Loss')
-        ax1.legend()
+        ax1.set_xlabel('Iteration', fontsize=14)
+        ax1.set_ylabel('Loss', fontsize=14)
+        ax1.set_title('Training and Validation Loss', fontsize=16)
+        ax1.legend(fontsize=12)
         ax1.grid(True, alpha=0.3)
+        ax1.tick_params(axis='both', which='major', labelsize=12)
         
-        # Plot 2: Accuracy curves
+        # Plot accuracy curves
+        ax2 = fig.add_subplot(gs[0, 1])
         ax2.plot(metrics['train_iter'], metrics['train_acc'], label='Train Accuracy', color='blue')
         ax2.plot(metrics['val_iter'], metrics['val_acc'], label='Validation Accuracy', color='red')
-        ax2.set_xlabel('Iteration')
-        ax2.set_ylabel('Accuracy')
-        ax2.set_title('Training and Validation Accuracy')
-        ax2.legend()
+        ax2.set_xlabel('Iteration', fontsize=14)
+        ax2.set_ylabel('Accuracy', fontsize=14)
+        ax2.set_title('Training and Validation Accuracy', fontsize=16)
+        ax2.legend(fontsize=12)
         ax2.grid(True, alpha=0.3)
+        ax2.tick_params(axis='both', which='major', labelsize=12)
         
-        # Plot 3: Text sample
+        # Plot text generation sample
+        ax3 = fig.add_subplot(gs[1, :])
         ax3.axis('off')
-        ax3.set_xlim(0, 1)  # Fixed x-axis limits
-        ax3.set_ylim(0, 1)  # Fixed y-axis limits
+        ax3.set_xlim(0, 1)
+        ax3.set_ylim(0, 1)
+        for spine in ax3.spines.values():
+            spine.set_visible(False)
         
+        # Generate text sample
         prompt = "\nHAMLET\n To be, or not to be?"
         try:
             generated_text = generate(model, prompt, encode, decode, max_new_tokens=200)
             
-            # Add prompt in blue
-            ax3.text(0.05, 0.95, "Prompt:", transform=ax3.transAxes, fontsize=12,
+            # Display prompt
+            ax3.text(0.05, 0.95, "Prompt:", transform=ax3.transAxes, fontsize=14,
                     verticalalignment='top', fontfamily='monospace', fontweight='bold', color='blue')
-            ax3.text(0.05, 0.90, prompt, transform=ax3.transAxes, fontsize=10,
+            ax3.text(0.05, 0.90, prompt, transform=ax3.transAxes, fontsize=12,
                     verticalalignment='top', fontfamily='monospace', color='blue')
             
-            # Add generated text in black - clip long lines
-            ax3.text(0.05, 0.80, "Generated Text:", transform=ax3.transAxes, fontsize=12,
+            # Display generated text
+            ax3.text(0.05, 0.75, "Generated Text:", transform=ax3.transAxes, fontsize=14,
                     verticalalignment='top', fontfamily='monospace', fontweight='bold', color='black')
             
-            # Split text into lines and pad/clip to exactly 80 characters
-            lines = generated_text.split('\n')
-            y_pos = 0.75
-            for line in lines:
-                if y_pos < 0.05:  # Stop if we run out of vertical space
+            # Format and display text lines
+            y_pos = 0.70
+            for line in generated_text.split('\n'):
+                if y_pos < 0.05:
                     break
-                # Pad or clip line to exactly 80 characters
-                if len(line) > 80:
-                    padded_line = line[:80] + "..."
-                else:
-                    padded_line = line.ljust(80)  # Pad with spaces to 80 chars
-                
-                ax3.text(0.05, y_pos, padded_line, transform=ax3.transAxes, fontsize=10,
+                padded_line = (line[:70] + "...") if len(line) > 70 else line.ljust(70)
+                ax3.text(0.05, y_pos, padded_line, transform=ax3.transAxes, fontsize=12,
                         verticalalignment='top', fontfamily='monospace', color='black')
-                y_pos -= 0.04  # Move down for next line
-            
+                y_pos -= 0.04
+                
         except Exception as e:
-            ax3.text(0.05, 0.95, "Prompt:", transform=ax3.transAxes, fontsize=12,
-                    verticalalignment='top', fontfamily='monospace', fontweight='bold', color='blue')
-            ax3.text(0.05, 0.90, prompt, transform=ax3.transAxes, fontsize=10,
-                    verticalalignment='top', fontfamily='monospace', color='blue')
-            ax3.text(0.05, 0.80, "Error:", transform=ax3.transAxes, fontsize=12,
+            # Display error if text generation fails
+            ax3.text(0.05, 0.75, "Error:", transform=ax3.transAxes, fontsize=14,
                     verticalalignment='top', fontfamily='monospace', fontweight='bold', color='red')
-            ax3.text(0.05, 0.75, f"Text generation failed: {e}", transform=ax3.transAxes, fontsize=10,
+            ax3.text(0.05, 0.70, f"Text generation failed: {e}", transform=ax3.transAxes, fontsize=12,
                     verticalalignment='top', fontfamily='monospace', color='red')
         
-        ax3.set_title(f'Text Sample at Iteration {iteration}')
-        
+        ax3.set_title(f'Text Sample at Iteration {iteration}', fontsize=16)
         plt.tight_layout()
         
-        # Save the figure
+        # Save and cleanup
         filename = f"temp_figures/iteration_{iteration:06d}.png"
         plt.savefig(filename, dpi=150, bbox_inches='tight')
-        plt.close()  # Close to free memory
+        plt.close()
     
     runner = Runner(net, loss_fn, optimizer, device, metric_freq = 100)
     runner.train(train_data, val_data, batch_size = 500, iters = 5000, hook_fn = training_hook)

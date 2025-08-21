@@ -1,10 +1,7 @@
 # Transformer Sandbox
 
 A Python project for experimenting with transformer models, featuring a simple implementation of the Transformer architecture and training utilities.
-
-## 🎬 Training Visualization Demo
-
-Watch the transformer learn in real-time! The training process generates an animated GIF showing the model's progress:
+Below, is an animated GIF showing the model's progress over several training examples:
 
 ![Training Progress](animation.gif)
 
@@ -20,7 +17,7 @@ The GIF is automatically generated after training completes, showing the complet
 ```
 transformer-sandbox/
 ├── demos/                          # Example notebooks and demonstrations
-│   └── Demo Shakespeare.ipynb     # Shakespeare text generation demo
+│   └── Demo Shakespeare.ipynb      # Shakespeare text generation demo
 ├── networks.py                     # Transformer model implementation
 ├── runners.py                      # Training and evaluation utilities
 ├── utils.py                        # Helper functions

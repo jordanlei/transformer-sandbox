@@ -100,7 +100,7 @@ Input: "OMELETTE. To fry, or not to fry?"
 Output: "TOETHYOSUIW. Ss AXd po, Path phit ive? Y. TSNDHO..."
 ```
 
-While not perfect English, it captures Shakespeare's linguistic patterns and structure!
+While not necessarily legible, it captures some trends like punctuation and capitalizing names!
 
 ### Using the Components Separately
 

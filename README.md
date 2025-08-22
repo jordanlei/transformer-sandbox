@@ -18,6 +18,9 @@ The GIF is automatically generated after training completes, showing the complet
 transformer-sandbox/
 ├── demos/                          # Example notebooks and demonstrations
 │   └── Demo Shakespeare.ipynb      # Shakespeare text generation demo
+├── scripts/                        # Training and execution scripts
+│   ├── run.sh                      # SLURM batch script for cluster execution
+│   └── example_usage.sh            # Examples of different training configurations
 ├── networks.py                     # Transformer model implementation
 ├── runners.py                      # Training and evaluation utilities
 ├── utils.py                        # Helper functions
@@ -146,6 +149,60 @@ generated_text = runner.generate(
     decode=decode_function,
     max_new_tokens=50
 )
+```
+
+### 🚀 Command Line Training
+
+For quick training runs without Jupyter, use the command line interface:
+
+#### Basic Training
+```bash
+# Train with default parameters
+python shakespeare_word.py
+
+# Train with custom iterations
+python shakespeare_word.py --iters 10000
+```
+
+#### Custom Model Configurations
+```bash
+# Smaller model for faster experimentation
+python shakespeare_word.py --n_heads 4 --n_layers 4 --embedding_size 64 --iters 2000
+
+# Larger model for better quality
+python shakespeare_word.py --n_heads 16 --n_layers 12 --embedding_size 256 --iters 15000
+
+# Custom learning rate and batch size
+python shakespeare_word.py --lr 5e-5 --batch_size 32 --iters 8000
+```
+
+#### Available Command Line Arguments
+- `--iters, -i`: Number of training iterations (default: 5000)
+- `--n_heads`: Number of attention heads (default: 10)
+- `--n_layers`: Number of transformer layers (default: 10)
+- `--embedding_size`: Embedding dimension (default: 128)
+- `--block_size`: Context block size (default: 80)
+- `--dropout`: Dropout rate (default: 0.1)
+- `--batch_size`: Training batch size (default: 50)
+- `--lr`: Learning rate (default: 1e-4)
+
+#### Cluster Execution
+For SLURM clusters, use the provided batch script:
+```bash
+# Submit to SLURM queue
+sbatch scripts/run.sh
+
+# Or run directly with singularity
+singularity exec --nv /path/to/singularity.sif python shakespeare_word.py --iters 10000
+```
+
+#### Examples and Help
+```bash
+# View usage examples
+./scripts/example_usage.sh
+
+# Get help on available options
+python shakespeare_word.py --help
 ```
 
 ## Model Architecture

@@ -10,6 +10,7 @@ import glob
 from matplotlib import gridspec
 from collections import Counter, defaultdict
 import re
+import argparse
 
 if torch.backends.mps.is_available(): device = torch.device("mps")
 elif torch.cuda.is_available(): device = torch.device("cuda")
@@ -99,6 +100,39 @@ def write_to_gif():
 
 
 def main():
+    """
+    Parse command line arguments and run training.
+    """
+    parser = argparse.ArgumentParser(description='Train Shakespeare transformer model')
+    parser.add_argument('--iters', '-i', type=int, default=5000,
+                       help='Number of training iterations (default: 5000)')
+    parser.add_argument('--n_heads', type=int, default=3,
+                       help='Number of attention heads (default: 10)')
+    parser.add_argument('--n_layers', type=int, default=3,
+                       help='Number of transformer layers (default: 10)')
+    parser.add_argument('--embedding_size', type=int, default=128,
+                       help='Embedding dimension (default: 128)')
+    parser.add_argument('--block_size', type=int, default=80,
+                       help='Context block size (default: 80)')
+    parser.add_argument('--dropout', type=float, default=0.1,
+                       help='Dropout rate (default: 0.1)')
+    parser.add_argument('--batch_size', type=int, default=50,
+                       help='Training batch size (default: 50)')
+    parser.add_argument('--lr', type=float, default=1e-3,
+                       help='Learning rate (default: 1e-4)')
+    
+    args = parser.parse_args()
+    
+    print(f"Training configuration:")
+    print(f"  Iterations: {args.iters}")
+    print(f"  Attention heads: {args.n_heads}")
+    print(f"  Transformer layers: {args.n_layers}")
+    print(f"  Embedding size: {args.embedding_size}")
+    print(f"  Block size: {args.block_size}")
+    print(f"  Dropout: {args.dropout}")
+    print(f"  Batch size: {args.batch_size}")
+    print(f"  Learning rate: {args.lr}")
+    
     # Create temp_figures directory
     os.makedirs("temp_figures", exist_ok=True)
     
@@ -106,8 +140,8 @@ def main():
     data = torch.tensor(encode(text))
     n = int(0.9 * len(data))
     train_data, val_data = data[:n], data[n:]
-    block_size = 50
-    batch_size = 64
+    block_size = args.block_size
+    batch_size = args.batch_size
 
     # Print an example of a training batch
     x, y = get_batch(train_data, block_size, batch_size)
@@ -121,9 +155,11 @@ def main():
     weights = weights / weights.sum() * len(weights)  # Normalize
     weights = weights.to(device)
 
-    net = Transformer(vocab_size, embedding_size = 128, num_heads = 10, num_layers = 10, block_size = 80, dropout=0.1).to(device)
+    net = Transformer(vocab_size, embedding_size=args.embedding_size, 
+                     num_heads=args.n_heads, num_layers=args.n_layers, 
+                     block_size=args.block_size, dropout=args.dropout).to(device)
     loss_fn = nn.CrossEntropyLoss(weight=weights)
-    optimizer = torch.optim.AdamW(net.parameters(), lr=1e-4)
+    optimizer = torch.optim.AdamW(net.parameters(), lr=args.lr)
     
     def training_hook(iteration, metrics, model):
         """Save training progress figures showing loss curves, accuracy, and text generation."""
@@ -202,10 +238,24 @@ def main():
         plt.close()
     
     runner = Runner(net, loss_fn, optimizer, device, metric_freq = 100)
-    runner.train(train_data, val_data, batch_size = 50, iters = 5000, hook_fn = training_hook)
+    runner.train(train_data, val_data, batch_size=args.batch_size, iters=args.iters, hook_fn=training_hook)
     
     # Create GIF from saved figures
     write_to_gif()
+    
+    # Save the trained network using runner.save
+    print("Saving the trained model...")
+    try:
+        runner.save("shakespeare_transformer_model")
+        print("Model saved successfully as 'shakespeare_transformer_model'")
+    except Exception as e:
+        print(f"Error saving model: {e}")
+        # Fallback: save just the network state dict
+        try:
+            torch.save(net.state_dict(), "shakespeare_transformer_state_dict.pt")
+            print("Model state dict saved as 'shakespeare_transformer_state_dict.pt'")
+        except Exception as e2:
+            print(f"Error saving state dict: {e2}")
     
     # Clean up temp_figures directory
     import shutil

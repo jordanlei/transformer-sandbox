@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+"""
+Script to run Shakespeare word-level transformer training and save the model.
+This script calls the main function from shakespeare_word.py and saves the network.
+"""
+
 import torch
 import torch.nn as nn
 from networks import Transformer
@@ -10,95 +16,24 @@ import glob
 from matplotlib import gridspec
 from collections import Counter, defaultdict
 import re
+import argparse
+
+from shakespeare_word import load_shakespeare, write_to_gif, tokenize
 
 if torch.backends.mps.is_available(): device = torch.device("mps")
 elif torch.cuda.is_available(): device = torch.device("cuda")
 else: device = torch.device("cpu")
 
 
-
-def tokenize(text):
-    # split on words or single punctuation using a compiled regex pattern
-    pattern = re.compile(r'\S+|\s', re.UNICODE)
-    tokens = pattern.findall(text)
-    # Create a set of lowercase tokens for faster lookup
-    token_set = set()
-    for t in tokens:
-        if t.islower():
-            token_set.add(t)
-    # Process tokens in a list comprehension
-    tokens = [t.lower() if t.lower() in token_set else t for t in tokens]
-    return tokens
-
-def load_shakespeare():
-    with open("shakespeare.txt", "r", encoding="utf-8") as f:
-        text = f.read()
-    tokens = tokenize(text)
-    most_common = [w for w, c in Counter(tokens).most_common(10000)]
-    vocab = ["<PAD>", "UNK"] + most_common
-    stoi = defaultdict(lambda: 1, {k:v for v,k in enumerate(vocab)})
-    itos = defaultdict(lambda: "UNK", {v:k for k,v in stoi.items()})
-
-    def encode(s):
-        tokens = tokenize(s)
-        # Use list comprehension instead of append loop
-        return [stoi[t] if t in vocab else 
-                stoi[t.capitalize()] if t.capitalize() in vocab else
-                stoi[t.lower()] if t.lower() in vocab else
-                stoi["UNK"] 
-                for t in tokens]
-
-    def decode(l):
-        # Use list comprehension for decoding
-        return "".join(itos[i] for i in l).replace("NEWLINE", "\n")
-
-    return text, len(vocab), encode, decode
-
-def write_to_gif():
-    """Create GIF from saved figures with extended first and last frame durations."""
-    print("Creating GIF from training progress figures...")
-    try:
-        # Get all PNG files in temp_figures directory
-        image_files = sorted(glob.glob("temp_figures/iteration_*.png"))
-        
-        if image_files:
-            # Open all images
-            images = []
-            for filename in image_files:
-                img = Image.open(filename)
-                images.append(img)
-            
-            # Create duration list: first and last frames stay longer
-            durations = []
-            for i in range(len(images)):
-                if i == 0:  # First frame
-                    durations.append(2000)  # 2 seconds
-                elif i == len(images) - 1:  # Last frame
-                    durations.append(3000)  # 3 seconds
-                else:  # Middle frames
-                    durations.append(500)   # 0.5 seconds
-            
-            # Save as GIF in main directory
-            gif_filename = "animation.gif"
-            images[0].save(
-                gif_filename,
-                save_all=True,
-                append_images=images[1:],
-                duration=durations,
-                loop=0
-            )
-            print(f"GIF created successfully: {gif_filename}")
-            print(f"Total frames: {len(images)}")
-            print(f"First frame duration: {durations[0]}ms, Last frame duration: {durations[-1]}ms")
-            
-        else:
-            print("No PNG files found to create GIF")
-            
-    except Exception as e:
-        print(f"Error creating GIF: {e}")
-
-
-def main():
+def run_andSave(num_iters=5000):
+    """
+    Run the Shakespeare training and save the model.
+    
+    Args:
+        num_iters (int): Number of training iterations (default: 5000)
+    """
+    print(f"Starting Shakespeare transformer training for {num_iters} iterations using device {device}")
+    
     # Create temp_figures directory
     os.makedirs("temp_figures", exist_ok=True)
     
@@ -202,7 +137,7 @@ def main():
         plt.close()
     
     runner = Runner(net, loss_fn, optimizer, device, metric_freq = 100)
-    runner.train(train_data, val_data, batch_size = 50, iters = 5000, hook_fn = training_hook)
+    runner.train(train_data, val_data, batch_size = 50, iters = num_iters, hook_fn = training_hook)
     
     # Create GIF from saved figures
     write_to_gif()
@@ -211,6 +146,33 @@ def main():
     import shutil
     shutil.rmtree("temp_figures")
     print("Cleaned up temp_figures directory")
+    
+    # Save the trained network using runner.save
+    print("Saving the trained model...")
+    try:
+        runner.save("shakespeare_transformer_model")
+        print("Model saved successfully as 'shakespeare_transformer_model'")
+    except Exception as e:
+        print(f"Error saving model: {e}")
+        # Fallback: save just the network state dict
+        try:
+            torch.save(net.state_dict(), "shakespeare_transformer_state_dict.pt")
+            print("Model state dict saved as 'shakespeare_transformer_state_dict.pt'")
+        except Exception as e2:
+            print(f"Error saving state dict: {e2}")
+
+def main():
+    """
+    Parse command line arguments and run training.
+    """
+    parser = argparse.ArgumentParser(description='Train Shakespeare transformer model')
+    parser.add_argument('--iters', '-i', type=int, default=50000,
+                       help='Number of training iterations (default: 5000)')
+    
+    args = parser.parse_args()
+    
+    print(f"Training for {args.iters} iterations")
+    run_andSave(args.iters)
 
 if __name__ == "__main__":
     main()

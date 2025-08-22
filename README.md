@@ -3,7 +3,7 @@
 A Python project for experimenting with transformer models, featuring a simple implementation of the Transformer architecture and training utilities.
 Below, is an animated GIF showing the model's progress over several training examples:
 
-![Training Progress](animation.gif)
+![Training Progress](animation_token.gif)
 
 **What you'll see:**
 - **Loss curves** (blue) and **validation loss** (red) decreasing over time

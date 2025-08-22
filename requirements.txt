@@ -65,14 +65,15 @@ nest-asyncio==1.6.0
 networkx==3.5
 notebook==7.4.5
 notebook_shim==0.2.4
-numpy==2.3.2
+numba==0.61.2
+numpy==1.24.3
 overrides==7.7.0
 packaging==25.0
 pandas==2.3.1
 pandocfilters==1.5.1
 parso==0.8.4
 pexpect==4.9.0
-pillow==11.3.0
+pillow==11.3.1
 platformdirs==4.3.8
 prometheus_client==0.22.1
 prompt_toolkit==3.0.51

@@ -8,22 +8,50 @@ import os
 from PIL import Image
 import glob
 from matplotlib import gridspec
+from collections import Counter, defaultdict
+import re
+
 if torch.backends.mps.is_available(): device = torch.device("mps")
 else: device = torch.device("cpu")
+
+
+
+def tokenize(text):
+    # split on words or single punctuation using a compiled regex pattern
+    pattern = re.compile(r'\S+|\s', re.UNICODE)
+    tokens = pattern.findall(text)
+    # Create a set of lowercase tokens for faster lookup
+    token_set = set()
+    for t in tokens:
+        if t.islower():
+            token_set.add(t)
+    # Process tokens in a list comprehension
+    tokens = [t.lower() if t.lower() in token_set else t for t in tokens]
+    return tokens
 
 def load_shakespeare():
     with open("shakespeare.txt", "r", encoding="utf-8") as f:
         text = f.read()
+    tokens = tokenize(text)
+    most_common = [w for w, c in Counter(tokens).most_common(10000)]
+    vocab = ["<PAD>", "UNK"] + most_common
+    stoi = defaultdict(lambda: 1, {k:v for v,k in enumerate(vocab)})
+    itos = defaultdict(lambda: "UNK", {v:k for k,v in stoi.items()})
 
-    chars = sorted(list(set(text)))
-    vocab_size = len(chars)
+    def encode(s):
+        tokens = tokenize(s)
+        # Use list comprehension instead of append loop
+        return [stoi[t] if t in vocab else 
+                stoi[t.capitalize()] if t.capitalize() in vocab else
+                stoi[t.lower()] if t.lower() in vocab else
+                stoi["UNK"] 
+                for t in tokens]
 
-    char_to_index = {ch: i for i, ch in enumerate(chars)}
-    index_to_char = {i: ch for i, ch in enumerate(chars)}
-    def encode(s): return [char_to_index[c] for c in s]
-    def decode(l): return "".join([index_to_char[i] for i in l])
-    return text, vocab_size, encode, decode
+    def decode(l):
+        # Use list comprehension for decoding
+        return "".join(itos[i] for i in l).replace("NEWLINE", "\n")
 
+    return text, len(vocab), encode, decode
 
 def write_to_gif():
     """Create GIF from saved figures with extended first and last frame durations."""
@@ -73,7 +101,6 @@ def main():
     # Create temp_figures directory
     os.makedirs("temp_figures", exist_ok=True)
     
-    print("Loading data...")
     text, vocab_size, encode, decode = load_shakespeare()
     data = torch.tensor(encode(text))
     n = int(0.9 * len(data))
@@ -86,9 +113,15 @@ def main():
     print("INPUT\n", "="*100, "\n", decode(x[1].tolist()))
     print("OUTPUT\n", "="*100, "\n", decode(y[1].tolist()))
 
-    print("Creating model...")
-    net = Transformer(vocab_size, embedding_size = 32, num_heads = 3, num_layers = 3, block_size = 50, dropout=0.1).to(device)
-    loss_fn = nn.CrossEntropyLoss()
+    token_counts = Counter(train_data.tolist())
+    token_counts = torch.tensor([token_counts[i] if i in token_counts else 0 for i in range(vocab_size)])
+    token_counts = token_counts.clamp(min=2)  # Avoid division by zero
+    weights = 1.0 / torch.log(token_counts)
+    weights = weights / weights.sum() * len(weights)  # Normalize
+    weights = weights.to(device)
+
+    net = Transformer(vocab_size, embedding_size = 128, num_heads = 3, num_layers = 4, block_size = 50, dropout=0.1).to(device)
+    loss_fn = nn.CrossEntropyLoss(weight=weights)
     optimizer = torch.optim.AdamW(net.parameters(), lr=1e-3)
     
     def training_hook(iteration, metrics, model):
@@ -167,9 +200,8 @@ def main():
         plt.savefig(filename, dpi=150, bbox_inches='tight')
         plt.close()
     
-    print("Training model...")
     runner = Runner(net, loss_fn, optimizer, device, metric_freq = 100)
-    runner.train(train_data, val_data, batch_size = 0, iters = 5000, hook_fn = training_hook)
+    runner.train(train_data, val_data, batch_size = 50, iters = 5000, hook_fn = training_hook)
     
     # Create GIF from saved figures
     write_to_gif()

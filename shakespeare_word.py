@@ -19,8 +19,12 @@ else: device = torch.device("cpu")
 
 
 def tokenize(text):
-    # split on words or single punctuation using a compiled regex pattern
-    pattern = re.compile(r'\S+|\s', re.UNICODE)
+    # split on words, punctuation, newlines, and tabs, but exclude regular spaces
+    # \S+ matches non-whitespace characters (words)
+    # \n matches newlines
+    # \t matches tabs
+    # [^\w\s] matches any punctuation character
+    pattern = re.compile(r'\w+|[^\w\s]|\n|\t', re.UNICODE)
     tokens = pattern.findall(text)
     # Create a set of lowercase tokens for faster lookup
     token_set = set()
@@ -50,8 +54,8 @@ def load_shakespeare():
                 for t in tokens]
 
     def decode(l):
-        # Use list comprehension for decoding
-        return "".join(itos[i] for i in l).replace("NEWLINE", "\n")
+        # Use list comprehension for decoding, adding spaces between tokens
+        return re.sub(r' ([.,?!:;\n\t])', r'\1', " ".join(itos[i] for i in l))
 
     return text, len(vocab), encode, decode
 
@@ -150,8 +154,8 @@ def main():
 
     token_counts = Counter(train_data.tolist())
     token_counts = torch.tensor([token_counts[i] if i in token_counts else 0 for i in range(vocab_size)])
-    token_counts = token_counts.clamp(min=2)  # Avoid division by zero
-    weights = 1.0 / torch.log(token_counts)
+    token_counts = token_counts.clamp(min=1)  # Avoid division by zero
+    weights = 1.0 / torch.log(token_counts + 1)
     weights = weights / weights.sum() * len(weights)  # Normalize
     weights = weights.to(device)
 
@@ -161,8 +165,18 @@ def main():
     loss_fn = nn.CrossEntropyLoss(weight=weights)
     optimizer = torch.optim.AdamW(net.parameters(), lr=args.lr)
     
-    def training_hook(iteration, metrics, model):
+    def training_hook(iteration, metrics, model, optimizer):
         """Save training progress figures showing loss curves, accuracy, and text generation."""
+
+        # Print the current learning rate
+        print(f"Current learning rate: {optimizer.param_groups[0]['lr']}")
+        # Apply learning rate decay
+        if iteration > 0:
+            # Decay learning rate exponentially every 1000 iterations
+            if iteration % 1000 == 0:
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] *= 0.9  # Reduce learning rate by 10%
+
         # Create figure layout
         fig = plt.figure(figsize=(10, 10))
         gs = gridspec.GridSpec(2, 2, height_ratios=[1, 1])
@@ -198,7 +212,7 @@ def main():
             spine.set_visible(False)
         
         # Generate text sample
-        prompt = "\nHAMLET\n To be, or not to be?"
+        prompt = "O, cruel fortune,\ndost thou mock me still?\n"
         try:
             generated_text = generate(model, prompt, encode, decode, max_new_tokens=200)
             

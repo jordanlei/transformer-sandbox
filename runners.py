@@ -100,7 +100,7 @@ class Runner:
 
                 # Call hook function if provided
                 if hook_fn is not None:
-                    hook_fn(i, self.metrics, self.net)
+                    hook_fn(i, self.metrics, self.net, self.optimizer)
 
                 progress_bar.set_description(f"Train Loss: {loss.item():.4f}, Train Acc: {acc.item():.4f}, Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}")
     

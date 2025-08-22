@@ -91,7 +91,7 @@ def main():
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.AdamW(net.parameters(), lr=1e-3)
     
-    def training_hook(iteration, metrics, model):
+    def training_hook(iteration, metrics, model, optimizer):
         """Save training progress figures showing loss curves, accuracy, and text generation."""
         # Create figure layout
         fig = plt.figure(figsize=(10, 10))

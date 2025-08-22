@@ -17,7 +17,6 @@ elif torch.cuda.is_available(): device = torch.device("cuda")
 else: device = torch.device("cpu")
 
 
-
 def tokenize(text):
     # split on words, punctuation, newlines, and tabs, but exclude regular spaces
     # \S+ matches non-whitespace characters (words)
@@ -212,7 +211,9 @@ def main():
             spine.set_visible(False)
         
         # Generate text sample
-        prompt = "O, cruel fortune,\ndost thou mock me still?\n"
+        prompt = "Hark! the midnight bell doth toll, and shadows lengthen in the court.\n\
+        Lo, a messenger comes, cloaked in haste, with tidings grave and unlooked for.\n\
+        Methinks the stars do write upon the heavens the fate of mortal kings."
         try:
             generated_text = generate(model, prompt, encode, decode, max_new_tokens=200)
             

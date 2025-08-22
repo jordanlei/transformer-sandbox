@@ -246,6 +246,7 @@ checkpoints/
 models/
 weights/
 saved_models/
+saved/
 
 # Data files (uncomment if you don't want to track large datasets)
 # *.txt

@@ -135,13 +135,92 @@ class Runner:
         """
         return generate(self.net, string_input, encode, decode, max_new_tokens, self.block_size)
 
-    def save(self, path):
-        """Save model state dict to path."""
-        torch.save(self.net.state_dict(), path)
+    def save(self, path, metadata=None):
+        """Save model state and architecture to path using the model's save method.
+        
+        Args:
+            path: Path to save the model to
+            metadata: Optional metadata to include in the saved file
+        """
+        self.net.save(path, metadata=metadata)
 
-    def load(self, path):
-        """Load model state dict from path."""
-        self.net.load_state_dict(torch.load(path))
+    @classmethod
+    def load(cls, path, device='cpu', strict=True):
+        """Load a model from path and return a new Runner instance.
+        
+        Args:
+            path: Path to the saved model file
+            device: Device to run on ('cuda', 'mps', or 'cpu')
+            strict: Whether to strictly enforce state dict loading
+            
+        Returns:
+            A new Runner instance with the loaded network, but None for optimizer and loss_fn
+            
+        Note:
+            Assumes the model class has a load() class method.
+        """
+        # Ensure proper file extension
+        if not path.endswith(('.pt', '.pth')):
+            path += '.pt'
+        
+        try:
+            # Load the saved dictionary to get model class info
+            save_dict = torch.load(path, map_location='cpu')
+            
+            # Get the model class name and module
+            model_class_name = save_dict.get('model_class')
+            model_module = save_dict.get('model_module', 'networks')
+            
+            if not model_class_name:
+                raise ValueError("Model file missing 'model_class' information")
+            
+            # Import the model class
+            if model_module == 'networks':
+                from networks import Transformer
+                model_class = Transformer
+            else:
+                raise ImportError(f"Module {model_module} not supported yet")
+            
+            # Use the model class's load method directly
+            new_net = model_class.load(path, device=device, strict=strict)
+            
+            # Create and return the new runner
+            return cls(net=new_net, loss_fn=None, optimizer=None, device=device)
+            
+        except Exception as e:
+            raise RuntimeError(f"Failed to load model from {path}: {e}")
+    
+    @classmethod
+    def load_with_metadata(cls, path, device='cpu'):
+        """Load a model and return both the runner and metadata.
+        
+        Args:
+            path: Path to the saved model file
+            device: Device to run on
+            
+        Returns:
+            Tuple of (runner, metadata) where metadata contains training info
+        """
+        # Ensure proper file extension
+        if not path.endswith(('.pt', '.pth')):
+            path += '.pt'
+        
+        try:
+            save_dict = torch.load(path, map_location='cpu')
+            
+            if 'metadata' not in save_dict:
+                print("Warning: No metadata found in model file")
+                metadata = {}
+            else:
+                metadata = save_dict['metadata']
+            
+            # Load the runner normally
+            runner = cls.load(path, device=device)
+            
+            return runner, metadata
+            
+        except Exception as e:
+            raise RuntimeError(f"Failed to load model with metadata from {path}: {e}")
 
     def plot_metrics(self):
         """Plot training and validation metrics."""

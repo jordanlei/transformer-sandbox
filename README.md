@@ -195,7 +195,6 @@ sbatch scripts/run.sh
 # Or run directly with singularity
 singularity exec --nv /path/to/singularity.sif python shakespeare_word.py --iters 10000
 ```
-
 #### Examples and Help
 ```bash
 # View usage examples
@@ -254,3 +253,4 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+

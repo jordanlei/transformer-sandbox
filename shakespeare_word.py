@@ -256,11 +256,31 @@ def main():
     # Create GIF from saved figures
     write_to_gif()
     
-    # Save the trained network using runner.save
+    # Save the trained network using runner.save with metadata
     print("Saving the trained model...")
     try:
-        runner.save("shakespeare_transformer_model")
-        print("Model saved successfully as 'shakespeare_transformer_model'")
+        # Save with training metadata
+        training_metadata = {
+            'training_iterations': args.iters,
+            'final_train_loss': runner.metrics['train_loss'][-1] if runner.metrics['train_loss'] else None,
+            'final_val_loss': runner.metrics['val_loss'][-1] if runner.metrics['val_loss'] else None,
+            'final_train_acc': runner.metrics['train_acc'][-1] if runner.metrics['train_acc'] else None,
+            'final_val_acc': runner.metrics['val_acc'][-1] if runner.metrics['val_acc'] else None,
+            'batch_size': args.batch_size,
+            'learning_rate': args.lr,
+            'model_config': {
+                'n_heads': args.n_heads,
+                'n_layers': args.n_layers,
+                'embedding_size': args.embedding_size,
+                'block_size': args.block_size,
+                'dropout': args.dropout
+            }
+        }
+        
+        runner.save("saved/shakespeare_transformer_model.pt", metadata=training_metadata)
+        print("Model saved successfully as 'saved/shakespeare_transformer_model.pt'")
+        print(f"Training metadata: {training_metadata}")
+        
     except Exception as e:
         print(f"Error saving model: {e}")
         # Fallback: save just the network state dict
@@ -269,6 +289,45 @@ def main():
             print("Model state dict saved as 'shakespeare_transformer_state_dict.pt'")
         except Exception as e2:
             print(f"Error saving state dict: {e2}")
+    
+    # Test the new Runner.load() functionality
+    print("\n" + "="*80)
+    print("TESTING NEW Runner.load() FUNCTIONALITY")
+    print("="*80)
+    
+    try:
+        print("Loading model using Runner.load()...")
+        loaded_runner = Runner.load("saved/shakespeare_transformer_model.pt", device=device)
+        print("✓ Model loaded successfully using Runner.load()")
+        
+        # Verify the loaded runner has the correct properties
+        print(f"✓ Loaded runner.net type: {type(loaded_runner.net)}")
+        print(f"✓ Loaded runner.optimizer: {loaded_runner.optimizer}")
+        print(f"✓ Loaded runner.loss_fn: {loaded_runner.loss_fn}")
+        print(f"✓ Loaded runner.device: {loaded_runner.device}")
+        print(f"✓ Loaded runner.block_size: {loaded_runner.block_size}")
+        
+        # Test text generation with the loaded model
+        print("\nTesting text generation with loaded model...")
+        test_prompt = "To be, or not to be, that is the question:"
+        generated_text = loaded_runner.generate(test_prompt, encode, decode, max_new_tokens=100)
+        print(f"✓ Text generation successful!")
+        print(f"Prompt: {test_prompt}")
+        print(f"Generated: {generated_text}")
+        
+        # Test that we can access the network directly
+        print("\nTesting direct network access...")
+        loaded_net = loaded_runner.net
+        print(f"✓ Network loaded: {type(loaded_net)}")
+        print(f"✓ Network block_size: {loaded_net.block_size}")
+        print(f"✓ Network vocab_size: {loaded_net.vocab_size}")
+        
+        print("\n🎉 All tests passed! Runner.load() is working correctly!")
+        
+    except Exception as e:
+        print(f"❌ Error testing Runner.load(): {e}")
+        import traceback
+        traceback.print_exc()
     
     # Clean up temp_figures directory
     import shutil

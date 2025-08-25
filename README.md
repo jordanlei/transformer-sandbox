@@ -18,12 +18,7 @@ The model's word embeddings can be visualized to understand how it represents re
 
 ![Word Embeddings PCA](embedding.png)
 
-The plot above shows the 2D projection of word embeddings for the sentence "Juliet carried Romeo __". Each point represents a word, with similar words clustering together in the embedding space. This visualization helps us understand how the model learns to represent semantic relationships between words during training.
-
-Key observations:
-- Related words (like character names) tend to cluster together
-- Words with similar grammatical roles show proximity
-- The model learns meaningful vector representations that capture both semantic and syntactic relationships
+The plot above shows the 2D projection of word embeddings for the sentence "Juliet carried Romeo __". Each point represents a word, with similar words clustering together in the embedding space. This visualization helps us understand how the model learns to represent semantic relationships between words during training. Even though the same words don't map onto the same projected space, they are modulated by their context. The path each sentence takes carves out a "path" in embedding space that differs slightly based on context.
 
 
 ## Project Structure

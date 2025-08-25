@@ -30,7 +30,8 @@ Key observations:
 ```
 transformer-sandbox/
 ├── demos/                          # Example notebooks and demonstrations
-│   └── Demo Shakespeare.ipynb      # Shakespeare text generation demo
+│   ├── Demo Shakespeare.ipynb      # Shakespeare text generation demo
+│   └── Semantic Embeddings.ipynb  # Word embedding visualization demo
 ├── scripts/                        # Training and execution scripts
 │   ├── run.sh                      # SLURM batch script for cluster execution
 │   └── example_usage.sh            # Examples of different training configurations
@@ -40,6 +41,15 @@ transformer-sandbox/
 ├── test.py                         # Comprehensive test suite
 ├── shakespeare.txt                 # Shakespeare text dataset
 ├── requirements.txt                # Python dependencies
+├── saved/                          # Saved model checkpoints
+│   └── shakespeare_transformer_model.pt
+├── saved_legacy/                   # Legacy model checkpoints
+│   ├── shakespeare_transformer_model.pt
+│   └── README.md
+├── animation.gif                   # Training progress animation
+├── animation_token.gif             # Token-level training animation
+├── animation_word.gif              # Word-level training animation
+├── embedding.png                   # Word embedding PCA visualization
 └── README.md                       # This file
 ```
 
@@ -53,6 +63,10 @@ transformer-sandbox/
   - Training visualization and metrics analysis
   - Real-time text generation with custom prompts
   - Optimized for Apple Silicon (MPS) and CPU
+- **🔍 Semantic Embeddings Demo**: Interactive exploration of word embeddings
+  - PCA visualization of word relationships
+  - Understanding semantic similarities in the embedding space
+  - Analysis of how the model represents language structure
 
 ## Installation
 
@@ -118,6 +132,30 @@ Output: "TOETHYOSUIW. Ss AXd po, Path phit ive? Y. TSNDHO..."
 
 While not necessarily legible, it captures some trends like punctuation and capitalizing names!
 
+### 🔍 Semantic Embeddings Demo
+
+The `demos/Semantic Embeddings.ipynb` notebook provides an interactive exploration of how the transformer model learns to represent words in vector space:
+
+```bash
+cd demos
+jupyter notebook "Semantic Embeddings.ipynb"
+```
+
+#### What You'll Explore
+
+This notebook demonstrates:
+
+1. **Word Embedding Extraction**: How to extract learned word representations from the trained model
+2. **PCA Visualization**: Dimensionality reduction to visualize high-dimensional embeddings in 2D
+3. **Semantic Clustering**: Understanding how related words cluster together in embedding space
+4. **Relationship Analysis**: Exploring how the model captures semantic and syntactic relationships
+
+#### Key Insights
+
+- **Character Names**: Romeo, Juliet, and other characters cluster together
+- **Grammatical Patterns**: Similar parts of speech show proximity in embedding space
+- **Contextual Understanding**: The model learns meaningful representations that capture Shakespeare's language patterns
+
 ### Using the Components Separately
 
 #### Creating a Transformer Model
@@ -164,57 +202,21 @@ generated_text = runner.generate(
 )
 ```
 
-### 🚀 Command Line Training
+### 🚀 Scripts and Utilities
 
-For quick training runs without Jupyter, use the command line interface:
+The project includes several utility scripts for different use cases:
 
-#### Basic Training
+#### Example Usage Script
 ```bash
-# Train with default parameters
-python shakespeare_word.py
-
-# Train with custom iterations
-python shakespeare_word.py --iters 10000
+# View usage examples and configurations
+./scripts/example_usage.sh
 ```
-
-#### Custom Model Configurations
-```bash
-# Smaller model for faster experimentation
-python shakespeare_word.py --n_heads 4 --n_layers 4 --embedding_size 64 --iters 2000
-
-# Larger model for better quality
-python shakespeare_word.py --n_heads 16 --n_layers 12 --embedding_size 256 --iters 15000
-
-# Custom learning rate and batch size
-python shakespeare_word.py --lr 5e-5 --batch_size 32 --iters 8000
-```
-
-#### Available Command Line Arguments
-- `--iters, -i`: Number of training iterations (default: 5000)
-- `--n_heads`: Number of attention heads (default: 10)
-- `--n_layers`: Number of transformer layers (default: 10)
-- `--embedding_size`: Embedding dimension (default: 128)
-- `--block_size`: Context block size (default: 80)
-- `--dropout`: Dropout rate (default: 0.1)
-- `--batch_size`: Training batch size (default: 50)
-- `--lr`: Learning rate (default: 1e-4)
 
 #### Cluster Execution
 For SLURM clusters, use the provided batch script:
 ```bash
 # Submit to SLURM queue
 sbatch scripts/run.sh
-
-# Or run directly with singularity
-singularity exec --nv /path/to/singularity.sif python shakespeare_word.py --iters 10000
-```
-#### Examples and Help
-```bash
-# View usage examples
-./scripts/example_usage.sh
-
-# Get help on available options
-python shakespeare_word.py --help
 ```
 
 ## Model Architecture
@@ -228,12 +230,13 @@ The transformer implementation includes:
 
 ## Requirements
 
-- Python 3.7+
-- PyTorch
-- Matplotlib
+- Python 3.8+ (tested with Python 3.13.2)
+- PyTorch 2.0+
+- Matplotlib 3.5+
 - Jupyter (for running demos)
+- NumPy, SciPy, and other scientific computing libraries
 
-See `requirements.txt` for specific package versions.
+See `requirements.txt` for specific package versions and dependencies.
 
 ## Contributing
 

@@ -1,19 +1,32 @@
 # Transformer Sandbox
 
 A Python project for experimenting with transformer models, featuring a simple implementation of the Transformer architecture and training utilities.
-Below, is an animated GIF showing the model's progress over several training examples:
+Below, is an animated GIF showing the model's progress over several training examples, for both char-level and word-level tokens:
 
 ![Training Progress](animation_token.gif)
+![Training Progress](animation_word.gif)
 
 **What you'll see:**
 - **Loss curves** (blue) and **validation loss** (red) decreasing over time
 - **Accuracy curves** showing training and validation performance
-- **Text samples** generated at each checkpoint using the prompt "HAMLET\n To be, or not to be?"
+- **Text samples** generated at each checkpoint using a custom input prompt
 
 The GIF is automatically generated after training completes, showing the complete learning journey from random characters to Shakespeare-like patterns!
 
-## Project Structure
+## Visualization
+The model's word embeddings can be visualized to understand how it represents relationships between words. Below is a PCA (Principal Component Analysis) visualization of word embeddings for a sample sentence prediction task:
 
+![Word Embeddings PCA](embedding.png)
+
+The plot above shows the 2D projection of word embeddings for the sentence "Juliet carried Romeo __". Each point represents a word, with similar words clustering together in the embedding space. This visualization helps us understand how the model learns to represent semantic relationships between words during training.
+
+Key observations:
+- Related words (like character names) tend to cluster together
+- Words with similar grammatical roles show proximity
+- The model learns meaningful vector representations that capture both semantic and syntactic relationships
+
+
+## Project Structure
 ```
 transformer-sandbox/
 ├── demos/                          # Example notebooks and demonstrations

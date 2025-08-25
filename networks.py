@@ -166,7 +166,7 @@ class Transformer(nn.Module):
         
         # Load the saved dictionary with error handling
         try:
-            save_dict = torch.load(path, map_location='cpu')
+            save_dict = torch.load(path, map_location='cpu', weights_only=False)
         except Exception as e:
             raise RuntimeError(f"Failed to load model from {path}: {e}")
         

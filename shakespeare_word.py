@@ -2,320 +2,122 @@ import torch
 import torch.nn as nn
 from networks import Transformer
 from runners import Runner, generate
-from utils import get_batch
-import matplotlib.pyplot as plt
+from utils import get_batch, load_shakespeare, write_to_gif
 import os
-from PIL import Image
-import glob
-from matplotlib import gridspec
-from collections import Counter, defaultdict
-import re
 import argparse
+from collections import Counter
 
-if torch.backends.mps.is_available(): device = torch.device("mps")
-elif torch.cuda.is_available(): device = torch.device("cuda")
-else: device = torch.device("cpu")
-
-
-def tokenize(text):
-    # split on words, punctuation, newlines, and tabs, but exclude regular spaces
-    # \S+ matches non-whitespace characters (words)
-    # \n matches newlines
-    # \t matches tabs
-    # [^\w\s] matches any punctuation character
-    pattern = re.compile(r'\w+|[^\w\s]|\n|\t', re.UNICODE)
-    tokens = pattern.findall(text)
-    # Create a set of lowercase tokens for faster lookup
-    token_set = set()
-    for t in tokens:
-        if t.islower():
-            token_set.add(t)
-    # Process tokens in a list comprehension
-    tokens = [t.lower() if t.lower() in token_set else t for t in tokens]
-    return tokens
-
-def load_shakespeare():
-    with open("shakespeare.txt", "r", encoding="utf-8") as f:
-        text = f.read()
-    tokens = tokenize(text)
-    most_common = [w for w, c in Counter(tokens).most_common(10000)]
-    vocab = ["<PAD>", "UNK"] + most_common
-    stoi = defaultdict(lambda: 1, {k:v for v,k in enumerate(vocab)})
-    itos = defaultdict(lambda: "UNK", {v:k for k,v in stoi.items()})
-
-    def encode(s):
-        tokens = tokenize(s)
-        # Use list comprehension instead of append loop
-        return [stoi[t] if t in vocab else 
-                stoi[t.capitalize()] if t.capitalize() in vocab else
-                stoi[t.lower()] if t.lower() in vocab else
-                stoi["UNK"] 
-                for t in tokens]
-
-    def decode(l):
-        # Use list comprehension for decoding, adding spaces between tokens
-        return re.sub(r' ([.,?!:;\n\t])', r'\1', " ".join(itos[i] for i in l))
-
-    return text, len(vocab), encode, decode
-
-def write_to_gif():
-    """Create GIF from saved figures with extended first and last frame durations."""
-    print("Creating GIF from training progress figures...")
-    try:
-        # Get all PNG files in temp_figures directory
-        image_files = sorted(glob.glob("temp_figures/iteration_*.png"))
-        
-        if image_files:
-            # Open all images
-            images = []
-            for filename in image_files:
-                img = Image.open(filename)
-                images.append(img)
-            
-            # Create duration list: first and last frames stay longer
-            durations = []
-            for i in range(len(images)):
-                if i == 0:  # First frame
-                    durations.append(2000)  # 2 seconds
-                elif i == len(images) - 1:  # Last frame
-                    durations.append(3000)  # 3 seconds
-                else:  # Middle frames
-                    durations.append(500)   # 0.5 seconds
-            
-            # Save as GIF in main directory
-            gif_filename = "animation.gif"
-            images[0].save(
-                gif_filename,
-                save_all=True,
-                append_images=images[1:],
-                duration=durations,
-                loop=0
-            )
-            print(f"GIF created successfully: {gif_filename}")
-            print(f"Total frames: {len(images)}")
-            print(f"First frame duration: {durations[0]}ms, Last frame duration: {durations[-1]}ms")
-            
-        else:
-            print("No PNG files found to create GIF")
-            
-    except Exception as e:
-        print(f"Error creating GIF: {e}")
+# Set device based on availability
+if torch.backends.mps.is_available():
+    device = torch.device("mps")
+elif torch.cuda.is_available():
+    device = torch.device("cuda") 
+else:
+    device = torch.device("cpu")
 
 
 def main():
-    """
-    Parse command line arguments and run training.
-    """
+    """Parse arguments and run training."""
     parser = argparse.ArgumentParser(description='Train Shakespeare transformer model')
     parser.add_argument('--iters', '-i', type=int, default=5000,
-                       help='Number of training iterations (default: 5000)')
+                       help='Number of training iterations')
     parser.add_argument('--n_heads', type=int, default=3,
-                       help='Number of attention heads (default: 10)')
+                       help='Number of attention heads')
     parser.add_argument('--n_layers', type=int, default=3,
-                       help='Number of transformer layers (default: 10)')
+                       help='Number of transformer layers')
     parser.add_argument('--embedding_size', type=int, default=128,
-                       help='Embedding dimension (default: 128)')
-    parser.add_argument('--block_size', type=int, default=80,
-                       help='Context block size (default: 80)')
+                       help='Embedding dimension')
+    parser.add_argument('--block_size', type=int, default=150,
+                       help='Context block size')
     parser.add_argument('--dropout', type=float, default=0.1,
-                       help='Dropout rate (default: 0.1)')
+                       help='Dropout rate')
     parser.add_argument('--batch_size', type=int, default=50,
-                       help='Training batch size (default: 50)')
-    parser.add_argument('--lr', type=float, default=1e-3,
-                       help='Learning rate (default: 1e-4)')
-    
+                       help='Training batch size')
+    parser.add_argument('--lr', type=float, default=5e-4,
+                       help='Learning rate')
+    parser.add_argument('--tokenize_type', type=str, default="word",
+                       help='Type of tokenization (word or char)')
     args = parser.parse_args()
     
-    print(f"Training configuration:")
-    print(f"  Iterations: {args.iters}")
-    print(f"  Attention heads: {args.n_heads}")
-    print(f"  Transformer layers: {args.n_layers}")
-    print(f"  Embedding size: {args.embedding_size}")
-    print(f"  Block size: {args.block_size}")
-    print(f"  Dropout: {args.dropout}")
-    print(f"  Batch size: {args.batch_size}")
-    print(f"  Learning rate: {args.lr}")
+    # Print training configuration
+    print("Training configuration:")
+    for arg in vars(args):
+        print(f"  {arg}: {getattr(args, arg)}")
     
-    # Create temp_figures directory
+    # Setup
     os.makedirs("temp_figures", exist_ok=True)
+    text, vocab_size, tokenize, detokenize = load_shakespeare(tokenize_type = args.tokenize_type)
+    data = torch.tensor(tokenize(text))
+    train_data, val_data = data[:int(0.9*len(data))], data[int(0.9*len(data)):]
+
+    # Calculate token weights for loss function
+    if args.tokenize_type == "word":
+        token_counts = Counter(train_data.tolist())
+        weights = torch.tensor([token_counts.get(i, 1) for i in range(vocab_size)]).clamp(min=1)
+        weights = (1.0 / torch.log(weights + 1))
+        weights = (weights / weights.sum() * len(weights)).to(device)
+    else:
+        weights = None
+
+    # Initialize model, loss and optimizer
+    net = Transformer(
+        vocab_size, 
+        embedding_size=args.embedding_size,
+        num_heads=args.n_heads,
+        num_layers=args.n_layers,
+        block_size=args.block_size,
+        dropout=args.dropout
+    ).to(device)
     
-    text, vocab_size, encode, decode = load_shakespeare()
-    data = torch.tensor(encode(text))
-    n = int(0.9 * len(data))
-    train_data, val_data = data[:n], data[n:]
-    block_size = args.block_size
-    batch_size = args.batch_size
-
-    # Print an example of a training batch
-    x, y = get_batch(train_data, block_size, batch_size)
-    print("INPUT\n", "="*100, "\n", decode(x[1].tolist()))
-    print("OUTPUT\n", "="*100, "\n", decode(y[1].tolist()))
-
-    token_counts = Counter(train_data.tolist())
-    token_counts = torch.tensor([token_counts[i] if i in token_counts else 0 for i in range(vocab_size)])
-    token_counts = token_counts.clamp(min=1)  # Avoid division by zero
-    weights = 1.0 / torch.log(token_counts + 1)
-    weights = weights / weights.sum() * len(weights)  # Normalize
-    weights = weights.to(device)
-
-    net = Transformer(vocab_size, embedding_size=args.embedding_size, 
-                     num_heads=args.n_heads, num_layers=args.n_layers, 
-                     block_size=args.block_size, dropout=args.dropout).to(device)
     loss_fn = nn.CrossEntropyLoss(weight=weights)
     optimizer = torch.optim.AdamW(net.parameters(), lr=args.lr)
-    
+
+    # Define simple training hook that uses Runner's native plot_progress method
     def training_hook(iteration, metrics, model, optimizer):
-        """Save training progress figures showing loss curves, accuracy, and text generation."""
+        """Simple training hook that plots progress using Runner's native method."""
+        # Use the runner's plot_progress method to save the current training state
+        runner.plot_progress(tokenizer=tokenize, detokenizer=detokenize, 
+                           prompt="MACBETH.\nI'll not be moved;\nDeprived of that which\nMakes us kinsmen.", 
+                           max_new_tokens=100, 
+                           save_path=f"temp_figures/iteration_{iteration:06d}.png")
 
-        # Print the current learning rate
-        print(f"Current learning rate: {optimizer.param_groups[0]['lr']}")
-        # Apply learning rate decay
-        if iteration > 0:
-            # Decay learning rate exponentially every 1000 iterations
-            if iteration % 1000 == 0:
-                for param_group in optimizer.param_groups:
-                    param_group['lr'] *= 0.9  # Reduce learning rate by 10%
-
-        # Create figure layout
-        fig = plt.figure(figsize=(10, 10))
-        gs = gridspec.GridSpec(2, 2, height_ratios=[1, 1])
-        
-        # Plot loss curves
-        ax1 = fig.add_subplot(gs[0, 0])
-        ax1.plot(metrics['train_iter'], metrics['train_loss'], label='Train Loss', color='blue')
-        ax1.plot(metrics['val_iter'], metrics['val_loss'], label='Validation Loss', color='red')
-        ax1.set_xlabel('Iteration', fontsize=14)
-        ax1.set_ylabel('Loss', fontsize=14)
-        ax1.set_title('Training and Validation Loss', fontsize=16)
-        ax1.legend(fontsize=12)
-        ax1.grid(True, alpha=0.3)
-        ax1.tick_params(axis='both', which='major', labelsize=12)
-        
-        # Plot accuracy curves
-        ax2 = fig.add_subplot(gs[0, 1])
-        ax2.plot(metrics['train_iter'], metrics['train_acc'], label='Train Accuracy', color='blue')
-        ax2.plot(metrics['val_iter'], metrics['val_acc'], label='Validation Accuracy', color='red')
-        ax2.set_xlabel('Iteration', fontsize=14)
-        ax2.set_ylabel('Accuracy', fontsize=14)
-        ax2.set_title('Training and Validation Accuracy', fontsize=16)
-        ax2.legend(fontsize=12)
-        ax2.grid(True, alpha=0.3)
-        ax2.tick_params(axis='both', which='major', labelsize=12)
-        
-        # Plot text generation sample
-        ax3 = fig.add_subplot(gs[1, :])
-        ax3.axis('off')
-        ax3.set_xlim(0, 1)
-        ax3.set_ylim(0, 1)
-        for spine in ax3.spines.values():
-            spine.set_visible(False)
-        
-        # Generate text sample
-        prompt = "Hark! the midnight bell doth toll, and shadows lengthen in the court.\nLo, a messenger comes, cloaked in haste, with tidings grave and unlooked for.\nMethinks the stars do write upon the heavens the fate of mortal kings."
-        try:
-            generated_text = generate(model, prompt, encode, decode, max_new_tokens=200)
-            
-            # Display prompt
-            ax3.text(0.05, 0.95, "Prompt:", transform=ax3.transAxes, fontsize=14,
-                    verticalalignment='top', fontfamily='monospace', fontweight='bold', color='blue')
-            ax3.text(0.05, 0.90, prompt, transform=ax3.transAxes, fontsize=12,
-                    verticalalignment='top', fontfamily='monospace', color='blue')
-            
-            # Display generated text
-            ax3.text(0.05, 0.75, "Generated Text:", transform=ax3.transAxes, fontsize=14,
-                    verticalalignment='top', fontfamily='monospace', fontweight='bold', color='black')
-            
-            # Format and display text lines
-            y_pos = 0.70
-            for line in generated_text.split('\n'):
-                if y_pos < 0.05:
-                    break
-                padded_line = (line[:70] + "...") if len(line) > 70 else line.ljust(70)
-                ax3.text(0.05, y_pos, padded_line, transform=ax3.transAxes, fontsize=12,
-                        verticalalignment='top', fontfamily='monospace', color='black')
-                y_pos -= 0.04
-                
-        except Exception as e:
-            # Display error if text generation fails
-            ax3.text(0.05, 0.75, "Error:", transform=ax3.transAxes, fontsize=14,
-                    verticalalignment='top', fontfamily='monospace', fontweight='bold', color='red')
-            ax3.text(0.05, 0.70, f"Text generation failed: {e}", transform=ax3.transAxes, fontsize=12,
-                    verticalalignment='top', fontfamily='monospace', color='red')
-        
-        ax3.set_title(f'Text Sample at Iteration {iteration}', fontsize=16)
-        plt.tight_layout()
-        
-        # Save and cleanup
-        filename = f"temp_figures/iteration_{iteration:06d}.png"
-        plt.savefig(filename, dpi=150, bbox_inches='tight')
-        plt.close()
-    
-    runner = Runner(net, loss_fn, optimizer, device, metric_freq = 100)
+    # Train model
+    runner = Runner(net, loss_fn, optimizer, device, metric_freq=100)
     runner.train(train_data, val_data, batch_size=args.batch_size, iters=args.iters, hook_fn=training_hook)
     
-    # Create GIF from saved figures
+    # Create training animation from saved progress plots
+    print("Creating training animation...")
     write_to_gif()
     
-    # Save the trained network using runner.save with metadata
+    # Save model
     print("Saving the trained model...")
-    try:
-        # Save with training metadata
-        training_metadata = {
-            'training_iterations': args.iters,
-            'final_train_loss': runner.metrics['train_loss'][-1] if runner.metrics['train_loss'] else None,
-            'final_val_loss': runner.metrics['val_loss'][-1] if runner.metrics['val_loss'] else None,
-            'final_train_acc': runner.metrics['train_acc'][-1] if runner.metrics['train_acc'] else None,
-            'final_val_acc': runner.metrics['val_acc'][-1] if runner.metrics['val_acc'] else None,
-            'batch_size': args.batch_size,
-            'learning_rate': args.lr,
-            'model_config': {
-                'n_heads': args.n_heads,
-                'n_layers': args.n_layers,
-                'embedding_size': args.embedding_size,
-                'block_size': args.block_size,
-                'dropout': args.dropout
-            }
-        }
-        
-        runner.save("saved/shakespeare_transformer_model.pt", metadata=training_metadata)
-        print("Model saved successfully as 'saved/shakespeare_transformer_model.pt'")
-        print(f"Training metadata: {training_metadata}")
-        
-    except Exception as e:
-        print(f"Error saving model: {e}")
-        # Fallback: save just the network state dict
-        try:
-            torch.save(net.state_dict(), "shakespeare_transformer_state_dict.pt")
-            print("Model state dict saved as 'shakespeare_transformer_state_dict.pt'")
-        except Exception as e2:
-            print(f"Error saving state dict: {e2}")
+    runner.save("saved/shakespeare_transformer_model.pt")
+    print("Model saved successfully as 'saved/shakespeare_transformer_model.pt'")
     
-    # Test the new Runner.load() functionality
-    print("\n" + "="*80)
-    print("TESTING NEW Runner.load() FUNCTIONALITY")
-    print("="*80)
-    
+    # Test model loading
     try:
         print("Loading model using Runner.load()...")
-        loaded_runner = Runner.load("saved/shakespeare_transformer_model.pt", device=device)
+        loaded_runner = Runner.load("saved/shakespeare_transformer_model.pt", 
+                                  tokenizer=tokenize, 
+                                  detokenizer=detokenize,
+                                  device=device)
         print("✓ Model loaded successfully using Runner.load()")
-        
-        # Verify the loaded runner has the correct properties
+        # Verify loaded model
         print(f"✓ Loaded runner.net type: {type(loaded_runner.net)}")
         print(f"✓ Loaded runner.optimizer: {loaded_runner.optimizer}")
         print(f"✓ Loaded runner.loss_fn: {loaded_runner.loss_fn}")
         print(f"✓ Loaded runner.device: {loaded_runner.device}")
         print(f"✓ Loaded runner.block_size: {loaded_runner.block_size}")
-        
-        # Test text generation with the loaded model
+
+        # Test generation
         print("\nTesting text generation with loaded model...")
-        test_prompt = "To be, or not to be, that is the question:"
-        generated_text = loaded_runner.generate(test_prompt, encode, decode, max_new_tokens=100)
+        test_prompt = "MACBETH.\nI'll not be moved;\nDeprived of that which\nMakes us kinsmen."
+        generated_text = loaded_runner.generate(test_prompt, tokenize, detokenize, max_new_tokens=100)
         print(f"✓ Text generation successful!")
         print(f"Prompt: {test_prompt}")
         print(f"Generated: {generated_text}")
         
-        # Test that we can access the network directly
+        # Test network access
         print("\nTesting direct network access...")
         loaded_net = loaded_runner.net
         print(f"✓ Network loaded: {type(loaded_net)}")
@@ -329,7 +131,7 @@ def main():
         import traceback
         traceback.print_exc()
     
-    # Clean up temp_figures directory
+    # Cleanup
     import shutil
     shutil.rmtree("temp_figures")
     print("Cleaned up temp_figures directory")

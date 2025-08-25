@@ -2,71 +2,12 @@ import torch
 import torch.nn as nn
 from networks import Transformer
 from runners import Runner, generate
-from utils import get_batch
+from utils import get_batch, write_to_gif, load_shakespeare
 import matplotlib.pyplot as plt
 import os
-from PIL import Image
-import glob
 from matplotlib import gridspec
 if torch.backends.mps.is_available(): device = torch.device("mps")
 else: device = torch.device("cpu")
-
-def load_shakespeare():
-    with open("shakespeare.txt", "r", encoding="utf-8") as f:
-        text = f.read()
-
-    chars = sorted(list(set(text)))
-    vocab_size = len(chars)
-
-    char_to_index = {ch: i for i, ch in enumerate(chars)}
-    index_to_char = {i: ch for i, ch in enumerate(chars)}
-    def encode(s): return [char_to_index[c] for c in s]
-    def decode(l): return "".join([index_to_char[i] for i in l])
-    return text, vocab_size, encode, decode
-
-
-def write_to_gif():
-    """Create GIF from saved figures with extended first and last frame durations."""
-    print("Creating GIF from training progress figures...")
-    try:
-        # Get all PNG files in temp_figures directory
-        image_files = sorted(glob.glob("temp_figures/iteration_*.png"))
-        
-        if image_files:
-            # Open all images
-            images = []
-            for filename in image_files:
-                img = Image.open(filename)
-                images.append(img)
-            
-            # Create duration list: first and last frames stay longer
-            durations = []
-            for i in range(len(images)):
-                if i == 0:  # First frame
-                    durations.append(2000)  # 2 seconds
-                elif i == len(images) - 1:  # Last frame
-                    durations.append(3000)  # 3 seconds
-                else:  # Middle frames
-                    durations.append(500)   # 0.5 seconds
-            
-            # Save as GIF in main directory
-            gif_filename = "animation.gif"
-            images[0].save(
-                gif_filename,
-                save_all=True,
-                append_images=images[1:],
-                duration=durations,
-                loop=0
-            )
-            print(f"GIF created successfully: {gif_filename}")
-            print(f"Total frames: {len(images)}")
-            print(f"First frame duration: {durations[0]}ms, Last frame duration: {durations[-1]}ms")
-            
-        else:
-            print("No PNG files found to create GIF")
-            
-    except Exception as e:
-        print(f"Error creating GIF: {e}")
 
 
 def main():
@@ -74,8 +15,8 @@ def main():
     os.makedirs("temp_figures", exist_ok=True)
     
     print("Loading data...")
-    text, vocab_size, encode, decode = load_shakespeare()
-    data = torch.tensor(encode(text))
+    text, vocab_size, tokenize, detokenize = load_shakespeare(tokenize_type = "char")
+    data = torch.tensor(tokenize(text))
     n = int(0.9 * len(data))
     train_data, val_data = data[:n], data[n:]
     block_size = 50
@@ -83,8 +24,8 @@ def main():
 
     # Print an example of a training batch
     x, y = get_batch(train_data, block_size, batch_size)
-    print("INPUT\n", "="*100, "\n", decode(x[1].tolist()))
-    print("OUTPUT\n", "="*100, "\n", decode(y[1].tolist()))
+    print("INPUT\n", "="*100, "\n", detokenize(x[1].tolist()))
+    print("OUTPUT\n", "="*100, "\n", detokenize(y[1].tolist()))
 
     print("Creating model...")
     net = Transformer(vocab_size, embedding_size = 32, num_heads = 3, num_layers = 3, block_size = 50, dropout=0.1).to(device)
@@ -130,7 +71,7 @@ def main():
         # Generate text sample
         prompt = "\nHAMLET\n To be, or not to be?"
         try:
-            generated_text = generate(model, prompt, encode, decode, max_new_tokens=200)
+            generated_text = runner.generate(prompt, tokenize, detokenize, max_new_tokens=200)
             
             # Display prompt
             ax3.text(0.05, 0.95, "Prompt:", transform=ax3.transAxes, fontsize=14,
